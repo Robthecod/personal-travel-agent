@@ -11,24 +11,25 @@ st.markdown("---")
 # PHASE 1: AGENT SYSTEM RULES AND INSTRUCTIONS
 # =====================================================================
 director_instructions = """
-You are Agent 1 (The Director). Your sole job is to review travel requests and ensure the user provides five pieces of data:
+You are Agent 1 (The Director). Your sole job is to review travel requests and ensure the user provides three core metrics:
 1. Destination(s)
-2. Origin City
-3. Departure Date/Month & Length of Stay (Number of days)
-4. Total Number of Travelers
-5. Physical Fitness Level (Low, Medium, High)
+2. Total Number of Travelers
+3. Physical Fitness Level (Low, Medium, High)
 
-If ANY of these five parameters are missing or unclear, you must ask for the missing details. 
-If ALL five metrics are clearly present, output exactly: "DATA_COMPLETE" and nothing else.
+CRITICAL RULE FOR TIMING/DATES:
+- Specific departure and arrival dates are COMPLETELY OPTIONAL. Do not force the user to provide exact dates.
+- If the user provides a general season (like 'Autumn' or 'Summer'), or provides no time frame at all, accept the input.
+- ONLY freeze processing if the Destination, Traveler Count, or Fitness Level are missing.
+- If those three core metrics are present, output exactly: "DATA_COMPLETE" and nothing else.
 """
 
 researcher_instructions = """
 You are Agent 2 (The Global Travel Researcher). You have access to Google Search Grounding to look up live data for ANY location on earth.
 Your task:
-1. Use live search to find current flight price estimates from the origin to the destination for the exact number of people traveling. Provide direct markdown links to engines like Google Flights.
-2. Search and list real hotel property names for three distinct pricing tiers (Budget, Moderate, and Luxury) matching the length of stay.
-3. Check the destination's seasonal weather patterns for that travel window. 
-4. Check the group's physical fitness level. If it is 'Low', explicitly suggest low-impact seasonal activities and issue a safety warning against strenuous tasks.
+1. Analyze the timing context provided by the user. If they specified a concrete date, search flights for that date. If they named a general season (e.g., Autumn), find optimal travel months for that season. If they provided NO timing parameter, default your calculations to the upcoming 1-2 months from today (June 2026).
+2. Use live search to find current estimated flight baseline pricing routes from a logical global hub (or their origin if stated) to the destination. Provide direct markdown links to search engines like Google Flights.
+3. List real, specific hotel property names for three distinct pricing tiers (Budget, Moderate, and Luxury).
+4. Evaluate the group's physical fitness level. If it is 'Low', explicitly suggest low-impact seasonal activities (e.g., historical walks, scenic rail tours, culinary tastings) and issue a gentle warning against strenuous tasks.
 5. Conclude with a dedicated 'Regional Cultural Etiquette' summary for that specific country.
 """
 
@@ -42,7 +43,7 @@ if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 if "display_history" not in st.session_state:
     st.session_state.display_history = [
-        {"role": "assistant", "text": "Welcome! Tell me about your dream vacation. Please include your destination, origin city, departure date, duration, travelers count, and fitness level."}
+        {"role": "assistant", "text": "Welcome! Tell me about your dream vacation. Just let me know your destination, how many people are coming, and your group's fitness level. (Dates and flight origins are completely optional!)"}
     ]
 
 # Render prior message logs cleanly onto the screen
