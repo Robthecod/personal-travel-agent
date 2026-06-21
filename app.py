@@ -33,20 +33,36 @@ Your task:
 2. Search and list real, specific hotel property names for three distinct pricing tiers (Budget, Moderate, and Luxury) that match their length of stay.
 3. Check the destination's seasonal weather patterns for that travel window. 
 4. Check the group's physical fitness level. If it is 'Low', explicitly suggest low-impact seasonal activities (e.g., historical walks, scenic rail tours, culinary tastings) and issue a gentle warning against strenuous tasks.
-5. Conclude with a dedicated 'Regional Cultural Etiquette' summary for that specific country.
+
+CRITICAL SAFETY MANDATE:
+5. You MUST execute a comprehensive live web search for common tourist traps, overpriced sectors, local taxi cartels, pickpocketing hubs, and active traveler scams specific to this destination. You are COMPELLED to create a dedicated, bolded section titled '⚠️ CRITICAL TOURIST TRAPS & SCAM ALERTS' detailing these findings to protect the travelers.
+
+6. Conclude with a dedicated 'Regional Cultural Etiquette' summary for that specific country.
 """
 
 # Initialize Gemini Client safely
 client = genai.Client()
 
 # =====================================================================
-# PHASE 2: STREAMLIT STATEFUL MEMORY RETENTION
+# PHASE 2: INITIALIZE CHAT MEMORY ENGINES
 # =====================================================================
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+if "director_chat" not in st.session_state:
+    st.session_state.director_chat = client.chats.create(
+        model="gemini-2.5-flash",
+        config=types.GenerateContentConfig(system_instruction=director_instructions, temperature=0.1)
+    )
+if "researcher_chat" not in st.session_state:
+    st.session_state.researcher_chat = client.chats.create(
+        model="gemini-2.5-flash",
+        config=types.GenerateContentConfig(
+            system_instruction=researcher_instructions,
+            tools=[types.Tool(google_search=types.GoogleSearch())],
+            temperature=0.2
+        )
+    )
 if "display_history" not in st.session_state:
     st.session_state.display_history = [
-        {"role": "assistant", "text": "Welcome! Please tell me about your trip. To begin, I need all of the following details: Destination, Origin City, Departure Date/Month, Length of Stay, Total Number of Travelers, and your Physical Fitness Level. If any detail is missing, I will ask you to clarify!"}
+        {"role": "assistant", "text": "Welcome! Please tell me about your trip. To begin, I need all of the following details: Destination, Origin City, Departure Date/Month, Length of Stay, Total Number of Travelers, and your Physical Fitness Level. Once provided, I will build your itinerary and pull a mandatory live report on local tourist traps and scam networks to keep you safe!"}
     ]
 
 # Render prior message logs cleanly onto the screen
@@ -62,36 +78,26 @@ if user_input := st.chat_input("Type your travel details here..."):
     with st.chat_message("user"):
         st.write(user_input)
         
-    st.session_state.chat_history.append({"role": "user", "parts": [{"text": user_input}]})
     st.session_state.display_history.append({"role": "user", "text": user_input})
     
     with st.chat_message("assistant"):
         with st.spinner("Concierge Agents are consulting real-time web engines..."):
-            
-            # 1. Run Director Agent
-            director_response = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=st.session_state.chat_history,
-                config=types.GenerateContentConfig(system_instruction=director_instructions, temperature=0.1)
-            )
-            
-            # 2. Condition-Based Handoff to Researcher Agent
-            if "DATA_COMPLETE" in director_response.text:
-                research_response = client.models.generate_content(
-                    model='gemini-2.5-flash',
-                    contents=st.session_state.chat_history,
-                    config=types.GenerateContentConfig(
-                        system_instruction=researcher_instructions,
-                        tools=[types.Tool(google_search=types.GoogleSearch())],
-                        temperature=0.2
+            try:
+                # 1. Ask the Director if we have all variables
+                director_response = st.session_state.director_chat.send_message(user_input)
+                
+                # 2. Check if data criteria are met
+                if "DATA_COMPLETE" in director_response.text:
+                    # Sync user message over to researcher log and query the web live
+                    research_response = st.session_state.researcher_chat.send_message(
+                        f"The Director confirmed all metrics are present. Process this prompt via web search, ensuring the tourist traps section is fully generated: {user_input}"
                     )
-                )
-                final_text = research_response.text
-            else:
-                final_text = director_response.text
-            
-            # Output final result to page
-            st.write(final_text)
-            
-    st.session_state.chat_history.append({"role": "model", "parts": [{"text": final_text}]})
-    st.session_state.display_history.append({"role": "assistant", "text": final_text})
+                    final_text = research_response.text
+                else:
+                    final_text = director_response.text
+                
+                st.write(final_text)
+                st.session_state.display_history.append({"role": "assistant", "text": final_text})
+                
+            except Exception as e:
+                st.error("Google API temporary server timeout. Please try resubmitting your prompt in a moment!")
