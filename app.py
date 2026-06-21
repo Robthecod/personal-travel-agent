@@ -32,12 +32,16 @@ Your task:
 1. Use live search to find current flight price estimates from the user's specific origin city to their destination for their specific date and exact number of people traveling. Provide direct markdown links to engines like Google Flights.
 2. Search and list real, specific hotel property names for three distinct pricing tiers (Budget, Moderate, and Luxury) that match their length of stay.
 3. Check the destination's seasonal weather patterns for that travel window. 
-4. Check the group's physical fitness level. If it is 'Low', explicitly suggest low-impact seasonal activities (e.g., historical walks, scenic rail tours, culinary tastings) and issue a gentle warning against strenuous tasks.
+
+CRITICAL TRADITIONAL EXPERIENCE MANDATE:
+4. You MUST search for unique, lesser-known, non-mainstream niche tourist spots and hidden traditional gems specific to this destination that regular tourists bypass. List at least 2-3 of these spots in a dedicated section titled '💎 UNEXPLORED TRADITIONAL GEMS & NICHE SPOTS'.
+
+5. Check the group's physical fitness level. If it is 'Low', explicitly suggest low-impact seasonal activities matching these niche areas (e.g., local artisan workshops, slow historic walks) and issue a gentle warning against strenuous tasks.
 
 CRITICAL SAFETY MANDATE:
-5. You MUST execute a comprehensive live web search for common tourist traps, overpriced sectors, local taxi cartels, pickpocketing hubs, and active traveler scams specific to this destination. You are COMPELLED to create a dedicated, bolded section titled '⚠️ CRITICAL TOURIST TRAPS & SCAM ALERTS' detailing these findings to protect the travelers.
+6. You MUST execute a comprehensive live web search for common tourist traps, overpriced sectors, local taxi cartels, pickpocketing hubs, and active traveler scams specific to this destination. You are COMPELLED to create a dedicated, bolded section titled '⚠️ CRITICAL TOURIST TRAPS & SCAM ALERTS' detailing these findings to protect the travelers.
 
-6. Conclude with a dedicated 'Regional Cultural Etiquette' summary for that specific country.
+7. Conclude with a dedicated 'Regional Cultural Etiquette' summary for that specific country.
 """
 
 # Initialize Gemini Client safely
@@ -48,7 +52,7 @@ client = genai.Client()
 # =====================================================================
 if "display_history" not in st.session_state:
     st.session_state.display_history = [
-        {"role": "assistant", "text": "Welcome! Please tell me about your trip. To begin, I need all of the following details: Destination, Origin City, Departure Date/Month, Length of Stay, Total Number of Travelers, and your Physical Fitness Level. Once provided, I will build your itinerary and pull a mandatory live report on local tourist traps and scam networks to keep you safe!"}
+        {"role": "assistant", "text": "Welcome! Please tell me about your trip. To begin, I need all of the following details: Destination, Origin City, Departure Date/Month, Length of Stay, Total Number of Travelers, and your Physical Fitness Level. Once provided, I will build your custom itinerary, unlock hidden local niche gems, and pull a live scam warning report to keep you safe!"}
     ]
 
 # Render prior message logs cleanly onto the screen
@@ -85,7 +89,6 @@ if user_input := st.chat_input("Type your travel details here..."):
                         contents=user_input,
                         config=types.GenerateContentConfig(
                             system_instruction=researcher_instructions,
-                            # Dedicated search mapping to ensure zero function conflicts
                             tools=[types.Tool(google_search=types.GoogleSearch())],
                             temperature=0.2
                         )
