@@ -11,7 +11,7 @@ st.markdown("---")
 # PHASE 1: AGENT SYSTEM RULES AND INSTRUCTIONS
 # =====================================================================
 director_instructions = """
-You are Agent 1 (The Director). Your sole job is to review the single user prompt provided and ensure it contains all six of these exact pieces of data:
+You are Agent 1 (The Director). Your sole job is to review the consolidated user travel profile provided and ensure it contains all six of these exact pieces of data:
 1. Destination(s)
 2. Origin City (Where you are visiting/departing from)
 3. Departure Date or Month
@@ -20,10 +20,8 @@ You are Agent 1 (The Director). Your sole job is to review the single user promp
 6. Physical Fitness Level (Low, Medium, High)
 
 CRITICAL MANDATE RULE:
-- Every single piece of information listed above is strictly mandatory. No exceptions.
-- If even ONE single detail is missing or unclear (e.g., they forgot the number of days, or didn't tell you the departure date, or left out their origin city), you MUST freeze processing.
-- Politely tell the user exactly what details are missing and force them to provide them.
-- ONLY output the phrase "DATA_COMPLETE" if you have verified that all six details are clearly present in the prompt. Do not output anything else if data is complete.
+- Read the text carefully. If ANY of these six pieces are missing or marked as 'None', you must output a polite message listing EXACTLY what specific details are still missing.
+- ONLY output the phrase "DATA_COMPLETE" if all six fields have valid data filled in. Do not output anything else if data is complete.
 """
 
 researcher_instructions = """
@@ -35,8 +33,7 @@ Your task:
 
 CRITICAL TRADITIONAL EXPERIENCE MANDATE:
 4. You MUST search for unique, lesser-known, non-mainstream niche tourist spots and hidden traditional gems specific to this destination that regular tourists bypass. List at least 2-3 of these spots in a dedicated section titled '💎 UNEXPLORED TRADITIONAL GEMS & NICHE SPOTS'.
-
-5. Check the group's physical fitness level. If it is 'Low', explicitly suggest low-impact seasonal activities matching these niche areas (e.g., local artisan workshops, slow historic walks) and issue a gentle warning against strenuous tasks.
+5. Check the group's physical fitness level. If it is 'Low', explicitly suggest low-impact seasonal activities matching these niche areas and issue a gentle warning against strenuous tasks.
 
 CRITICAL SAFETY MANDATE:
 6. You MUST execute a comprehensive live web search for common tourist traps, overpriced sectors, local taxi cartels, pickpocketing hubs, and active traveler scams specific to this destination. You are COMPELLED to create a dedicated, bolded section titled '⚠️ CRITICAL TOURIST TRAPS & SCAM ALERTS' detailing these findings to protect the travelers.
@@ -48,11 +45,12 @@ CRITICAL SAFETY MANDATE:
 client = genai.Client()
 
 # =====================================================================
-# PHASE 2: STREAMLIT INTERNAL MEMORY MANAGEMENT
+# PHASE 2: STREAMLIT ADVANCED CONTEXT SLOTS
 # =====================================================================
+# Initialize memory logs for the visual page display
 if "display_history" not in st.session_state:
     st.session_state.display_history = [
-        {"role": "assistant", "text": "Welcome! Please tell me about your trip. To begin, I need all of the following details: Destination, Origin City, Departure Date/Month, Length of Stay, Total Number of Travelers, and your Physical Fitness Level. Once provided, I will build your custom itinerary, unlock hidden local niche gems, and pull a live scam warning report to keep you safe!"}
+        {"role": "assistant", "text": "Welcome! Please tell me about your trip. To begin, I need all of the following details: Destination, Origin City, Departure Date/Month, Length of Stay, Total Number of Travelers, and your Physical Fitness Level. You can give them to me all at once or separate them across multiple messages!"}
     ]
 
 # Render prior message logs cleanly onto the screen
@@ -61,7 +59,7 @@ for msg in st.session_state.display_history:
         st.write(msg["text"])
 
 # =====================================================================
-# PHASE 3: LOW-LATENCY INTERACTION LOOP
+# PHASE 3: PARAMETER AGGREGATION MOTOR
 # =====================================================================
 if user_input := st.chat_input("Type your travel details here..."):
     with st.chat_message("user"):
@@ -70,12 +68,38 @@ if user_input := st.chat_input("Type your travel details here..."):
     st.session_state.display_history.append({"role": "user", "text": user_input})
     
     with st.chat_message("assistant"):
-        with st.spinner("Concierge Agents are consulting real-time web engines..."):
+        with st.spinner("Concierge Agents are updating your travel profile..."):
             try:
-                # 1. Evaluate input parameters using low-overhead execution call
+                # We ask Gemini to parse the new user message and extract any travel variables it can find
+                extractor_prompt = f"""
+                Analyze the following user input and extract any travel parameters present.
+                User Input: "{user_input}"
+                
+                Respond by updating this template form. If a value isn't mentioned in the text, leave it exactly as 'None'. Do not assume or guess values:
+                Destination: 
+                Origin: 
+                Date: 
+                Duration: 
+                Travelers: 
+                Fitness: 
+                """
+                
+                extraction = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=extractor_prompt,
+                    config=types.GenerateContentConfig(temperature=0.0)
+                )
+                
+                # Combine the extraction history text into a running profile string
+                if "running_profile" not in st.session_state:
+                    st.session_state.running_profile = ""
+                
+                st.session_state.running_profile += f"\nNew details found:\n{extraction.text}"
+                
+                # 1. Evaluate total accumulated profile metrics using the Director Agent
                 director_response = client.models.generate_content(
                     model='gemini-2.5-flash',
-                    contents=user_input,
+                    contents=st.session_state.running_profile,
                     config=types.GenerateContentConfig(
                         system_instruction=director_instructions,
                         temperature=0.1,
@@ -86,7 +110,7 @@ if user_input := st.chat_input("Type your travel details here..."):
                 if "DATA_COMPLETE" in director_response.text:
                     research_response = client.models.generate_content(
                         model='gemini-2.5-flash',
-                        contents=user_input,
+                        contents=f"Generate the full search itinerary using this completed user profile:\n{st.session_state.running_profile}",
                         config=types.GenerateContentConfig(
                             system_instruction=researcher_instructions,
                             tools=[types.Tool(google_search=types.GoogleSearch())],
@@ -94,6 +118,8 @@ if user_input := st.chat_input("Type your travel details here..."):
                         )
                     )
                     final_text = research_response.text
+                    # Reset the profile collector once the final itinerary is successfully built
+                    st.session_state.running_profile = ""
                 else:
                     final_text = director_response.text
                 
@@ -101,4 +127,4 @@ if user_input := st.chat_input("Type your travel details here..."):
                 st.session_state.display_history.append({"role": "assistant", "text": final_text})
                 
             except Exception as e:
-                st.error("The search extraction task took too long to resolve. Please rephrase or shorten your parameters slightly and resubmit!")
+                st.error("The search extraction task encountered a processing delay. Please try resubmitting your parameters slightly differently!")
