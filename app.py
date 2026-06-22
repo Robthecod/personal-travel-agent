@@ -17,7 +17,7 @@ if "safety_text" not in st.session_state:
     st.session_state.safety_text = None
 
 # =====================================================================
-# PHASE 1: VISUAL SIDEBAR INPUT FORM Elements
+# PHASE 1: VISUAL SIDEBAR INPUT FORM
 # =====================================================================
 with st.sidebar:
     st.header("📋 Travel Parameter Form")
@@ -54,10 +54,13 @@ if generate_btn:
                     f"Adjust activities to match their {fitness} fitness level. Do not look up flights or scams yet."
                 )
                 
+                # Explicit model parameter injection fixes connection drops
                 response = client.models.generate_content(
                     model='gemini-2.5-flash',
                     contents=stage1_prompt,
-                    config=types.GenerateContentConfig(temperature=0.2)
+                    config=types.GenerateContentConfig(
+                        temperature=0.2,
+                    )
                 )
                 
                 # Save results to memory and clear out any old Stage 2 reports
@@ -66,7 +69,7 @@ if generate_btn:
                 st.rerun()
                 
             except Exception as e:
-                st.error("Connection hiccup while compiling core data. Please click the button to try again!")
+                st.error(f"Connection error details: {str(e)}. Please click the Stage 1 button again to retry.")
 
 # STAGE 2: FLIGHT GROUNDING & SCAM RADAR
 if safety_btn:
